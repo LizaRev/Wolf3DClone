@@ -1,0 +1,9 @@
+/outputDir:bin
+/intermediateDir:obj
+/platform:DesktopGL
+/config:
+/profile:Reach
+/compress:False
+
+/copy:wall.png
+/copy:door.png

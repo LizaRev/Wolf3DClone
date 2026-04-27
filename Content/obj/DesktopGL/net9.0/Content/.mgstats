@@ -1,0 +1,3 @@
+Source File,Dest File,Processor Type,Content Type,Source File Size,Dest File Size,Build Seconds
+"/Users/elizavetarevun/Wolf3d/Wolf3DClone/Content/door.png","/Users/elizavetarevun/Wolf3d/Wolf3DClone/Content/bin/DesktopGL/Content/door.png","CopyItem","File",2091,2091,0.000104
+"/Users/elizavetarevun/Wolf3d/Wolf3DClone/Content/wall.png","/Users/elizavetarevun/Wolf3d/Wolf3DClone/Content/bin/DesktopGL/Content/wall.png","CopyItem","File",2256,2256,0.000794
