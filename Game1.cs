@@ -11,6 +11,8 @@ using Wolf3DClone.World;
 
 namespace Wolf3DClone
 {
+    public enum GameState { Menu, Playing }
+
     public class Game1 : Game
     {
         private GraphicsDeviceManager _graphics;
@@ -19,7 +21,11 @@ namespace Wolf3DClone
         private Map _map;
         private Raycaster _raycaster;
 
+        // Текстури
         private Texture2D _wallTex, _doorTex, _finishTex, _floorTex, _enemyTex, _boltTex;
+        private Texture2D _menuBgTex, _startBtnTex, _exitBtnTex, _titleTex;
+        
+        // Звукові ефекти
         private SoundEffect _stepSound, _doorSound;
         private SoundEffectInstance _stepInstance, _doorInstance;
 
@@ -28,10 +34,17 @@ namespace Wolf3DClone
         private List<Enemy> _enemies;
         private List<Projectile> _playerBullets = new List<Projectile>();
 
-        // Змінна для відстеження часу після останнього влучання
+        private GameState _currentState = GameState.Menu;
+        private int _selected = 0;
+
+        // Розміри кнопок (твої широкі кнопки по центру)
+        private Rectangle _titleRect = new Rectangle(200, 40, 400, 120);
+        private Rectangle _startRect = new Rectangle(200, 260, 400, 110);
+        private Rectangle _exitRect = new Rectangle(200, 400, 400, 110);
+
         private float _lastHitTimer = 0f;
-        private const float RegenDelay = 3.0f; // Затримка перед початком регенерації (3 секунди)
-        private const float RegenRate = 5.0f;  // Скільки HP відновлюється за секунду
+        private const float RegenDelay = 3.0f;
+        private const float RegenRate = 5.0f;
 
         public Game1()
         {
@@ -39,7 +52,7 @@ namespace Wolf3DClone
             Content.RootDirectory = "Content";
             _graphics.PreferredBackBufferWidth = 800;
             _graphics.PreferredBackBufferHeight = 600;
-            IsMouseVisible = false;
+            IsMouseVisible = true;
         }
 
         protected override void Initialize()
@@ -47,37 +60,60 @@ namespace Wolf3DClone
             _player = new Player();
             _map = new Map();
             _raycaster = new Raycaster();
-            
-            _enemies = new List<Enemy>();
-            _enemies.Add(new Enemy(4.5f, 1.5f));
-            _enemies.Add(new Enemy(1.5f, 7.5f));
-            _enemies.Add(new Enemy(13.5f, 1.5f));
-            _enemies.Add(new Enemy(13.5f, 13.5f));
-            
+            _enemies = new List<Enemy> { 
+                new Enemy(4.5f, 1.5f), new Enemy(1.5f, 7.5f), 
+                new Enemy(13.5f, 1.5f), new Enemy(13.5f, 13.5f) 
+            };
             base.Initialize();
         }
 
         protected override void LoadContent()
         {
             _renderer = new Renderer(GraphicsDevice);
+            
+            // Завантаження графіки
             _wallTex = LoadTexture("Content/wall.png");
             _doorTex = LoadTexture("Content/door.png");
             _finishTex = LoadTexture("Content/finish.png");
             _floorTex = LoadTexture("Content/floor.png");
             _enemyTex = LoadTexture("Content/enemy.png");
             _boltTex = LoadTexture("Content/bolt.png");
+            _menuBgTex = LoadTexture("Content/menu_bg.png");
+            _startBtnTex = LoadTexture("Content/start_btn.png");
+            _exitBtnTex = LoadTexture("Content/exit_btn.png");
+            _titleTex = LoadTexture("Content/title.png");
 
             CleanTransparency(_enemyTex);
             CleanTransparency(_boltTex);
 
-            _stepSound = SoundEffect.FromStream(File.OpenRead("Content/step.wav"));
-            _stepInstance = _stepSound.CreateInstance();
-            _stepInstance.IsLooped = true;
-            _doorSound = SoundEffect.FromStream(File.OpenRead("Content/door.wav"));
-            _doorInstance = _doorSound.CreateInstance();
+            // Завантаження звуків кроків та дверей (wav зазвичай не викликає SIGABRT)
+            try {
+                _stepSound = LoadSound("Content/step.wav");
+                if (_stepSound != null) {
+                    _stepInstance = _stepSound.CreateInstance();
+                    _stepInstance.IsLooped = true;
+                }
+                
+                _doorSound = LoadSound("Content/door.wav");
+                if (_doorSound != null) _doorInstance = _doorSound.CreateInstance();
+            } catch {
+                // Якщо навіть wav не вантажиться, гра піде без звуку, але не вилетить
+            }
         }
 
-        private Texture2D LoadTexture(string path) => Texture2D.FromStream(GraphicsDevice, File.OpenRead(path));
+        private Texture2D LoadTexture(string path)
+        {
+            if (File.Exists(path)) return Texture2D.FromStream(GraphicsDevice, File.OpenRead(path));
+            Texture2D t = new Texture2D(GraphicsDevice, 1, 1);
+            t.SetData(new[] { Color.HotPink });
+            return t;
+        }
+
+        private SoundEffect LoadSound(string path)
+        {
+            if (File.Exists(path)) return SoundEffect.FromStream(File.OpenRead(path));
+            return null;
+        }
 
         private void CleanTransparency(Texture2D texture)
         {
@@ -93,84 +129,96 @@ namespace Wolf3DClone
         {
             var k = Keyboard.GetState();
             var m = Mouse.GetState();
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            _player.Update(_map, k.IsKeyDown(Keys.W), k.IsKeyDown(Keys.S), 0.05f);
-            
-            bool isMoving = k.IsKeyDown(Keys.W) || k.IsKeyDown(Keys.S);
-            if (isMoving) { if (_stepInstance.State != SoundState.Playing) _stepInstance.Play(); }
-            else _stepInstance.Stop();
-
-            if ((m.LeftButton == ButtonState.Pressed && _oldMouse.LeftButton == ButtonState.Released) ||
-                (k.IsKeyDown(Keys.LeftControl) && !_oldState.IsKeyDown(Keys.LeftControl)))
+            if (_currentState == GameState.Menu)
             {
-                _playerBullets.Add(_player.Shoot());
-            }
+                IsMouseVisible = true;
+                if (k.IsKeyDown(Keys.Up) && _oldState.IsKeyUp(Keys.Up)) _selected = 0;
+                if (k.IsKeyDown(Keys.Down) && _oldState.IsKeyUp(Keys.Down)) _selected = 1;
 
-            // Оновлення ворогів
-            foreach (var e in _enemies)
-            {
-                e.Update(gameTime, _player, _map);
-                for (int i = e.Bullets.Count - 1; i >= 0; i--)
+                bool clicked = (m.LeftButton == ButtonState.Pressed && _oldMouse.LeftButton == ButtonState.Released);
+                if ((clicked && _startRect.Contains(m.Position)) || (k.IsKeyDown(Keys.Enter) && _selected == 0))
                 {
-                    if (Vector2.Distance(e.Bullets[i].Position, _player.Position) < 0.4f)
+                    _currentState = GameState.Playing;
+                }
+                if ((clicked && _exitRect.Contains(m.Position)) || (k.IsKeyDown(Keys.Enter) && _selected == 1))
+                    Exit();
+            }
+            else
+            {
+                IsMouseVisible = false;
+                if (k.IsKeyDown(Keys.Escape)) _currentState = GameState.Menu;
+
+                _player.Update(_map, k.IsKeyDown(Keys.W), k.IsKeyDown(Keys.S), 0.05f);
+                
+                if (k.IsKeyDown(Keys.W) || k.IsKeyDown(Keys.S)) {
+                    if (_stepInstance?.State != SoundState.Playing) _stepInstance?.Play();
+                } else _stepInstance?.Stop();
+
+                if ((m.LeftButton == ButtonState.Pressed && _oldMouse.LeftButton == ButtonState.Released) ||
+                    (k.IsKeyDown(Keys.LeftControl) && !_oldState.IsKeyDown(Keys.LeftControl)))
+                    _playerBullets.Add(_player.Shoot());
+
+                foreach (var e in _enemies)
+                {
+                    e.Update(gameTime, _player, _map);
+                    for (int i = e.Bullets.Count - 1; i >= 0; i--)
                     {
-                        _player.Health -= 10f;
-                        _lastHitTimer = 0f; // Скидаємо таймер при отриманні урону
-                        e.Bullets.RemoveAt(i);
-                        if (_player.Health <= 0) 
+                        if (Vector2.Distance(e.Bullets[i].Position, _player.Position) < 0.4f)
                         {
-                            _player.Health = 100f;
-                            _player.Position = new Vector2(1.5f, 1.5f);
+                            _player.Health -= 10f;
+                            _lastHitTimer = 0f;
+                            e.Bullets.RemoveAt(i);
+                            if (_player.Health <= 0) { _player.Health = 100f; _player.Position = new Vector2(1.5f, 1.5f); }
                         }
                     }
                 }
-            }
 
-            // --- ЛОГІКА РЕГЕНЕРАЦІЇ ---
-            _lastHitTimer += deltaTime;
-            if (_lastHitTimer >= RegenDelay && _player.Health < 100f)
-            {
-                _player.Health += RegenRate * deltaTime;
-                if (_player.Health > 100f) _player.Health = 100f;
-            }
-
-            // Оновлення твоїх куль
-            for (int i = _playerBullets.Count - 1; i >= 0; i--)
-            {
-                _playerBullets[i].Update(_map);
-                for (int j = _enemies.Count - 1; j >= 0; j--)
+                _lastHitTimer += dt;
+                if (_lastHitTimer >= RegenDelay && _player.Health < 100f)
                 {
-                    if (Vector2.Distance(_playerBullets[i].Position, _enemies[j].Position) < 0.5f)
-                    {
-                        _enemies[j].Health -= 10f;
-                        _playerBullets[i].IsActive = false;
-                        if (_enemies[j].Health <= 0) _enemies.RemoveAt(j);
-                        break;
-                    }
+                    _player.Health += RegenRate * dt;
+                    if (_player.Health > 100f) _player.Health = 100f;
                 }
-                if (!_playerBullets[i].IsActive) _playerBullets.RemoveAt(i);
+
+                for (int i = _playerBullets.Count - 1; i >= 0; i--)
+                {
+                    _playerBullets[i].Update(_map);
+                    for (int j = _enemies.Count - 1; j >= 0; j--)
+                    {
+                        if (Vector2.Distance(_playerBullets[i].Position, _enemies[j].Position) < 0.5f)
+                        {
+                            _enemies[j].Health -= 10f;
+                            _playerBullets[i].IsActive = false;
+                            if (_enemies[j].Health <= 0) _enemies.RemoveAt(j);
+                            break;
+                        }
+                    }
+                    if (!_playerBullets[i].IsActive) _playerBullets.RemoveAt(i);
+                }
+
+                if (k.IsKeyDown(Keys.A)) _player.Rotation -= 0.04f;
+                if (k.IsKeyDown(Keys.D)) _player.Rotation += 0.04f;
+                
+                if (k.IsKeyDown(Keys.Space) && !_oldState.IsKeyDown(Keys.Space))
+                {
+                    _map.ToggleDoor(_player.Position.X, _player.Position.Y, _player.Rotation);
+                    _doorInstance?.Play();
+                }
             }
 
-            if (k.IsKeyDown(Keys.A)) _player.Rotation -= 0.04f;
-            if (k.IsKeyDown(Keys.D)) _player.Rotation += 0.04f;
-            
-            if (k.IsKeyDown(Keys.Space) && !_oldState.IsKeyDown(Keys.Space))
-            {
-                _map.ToggleDoor(_player.Position.X, _player.Position.Y, _player.Rotation);
-                _doorInstance.Play();
-            }
-
-            _oldState = k;
-            _oldMouse = m;
+            _oldState = k; _oldMouse = m;
             base.Update(gameTime);
         }
 
         protected override void Draw(GameTime gameTime)
         {
-            _renderer.Draw(_player, _map, _raycaster, _wallTex, _doorTex, _finishTex, _floorTex, _enemyTex, _boltTex, _enemies, _playerBullets, gameTime);
+            if (_currentState == GameState.Menu)
+                _renderer.DrawMenu(_menuBgTex, _titleTex, _titleRect, _startBtnTex, _startRect, _exitBtnTex, _exitRect, _selected);
+            else
+                _renderer.Draw(_player, _map, _raycaster, _wallTex, _doorTex, _finishTex, _floorTex, _enemyTex, _boltTex, _enemies, _playerBullets, gameTime);
             base.Draw(gameTime);
         }
     }
 }
-
