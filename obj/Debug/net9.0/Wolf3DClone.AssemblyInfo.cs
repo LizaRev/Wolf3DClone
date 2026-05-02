@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Wolf3DClone")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+820d07150b22ab4b8478907006916f2c186055b4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+38613d070e48d5d4ee4c071caa0fe8f387a69b4f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Wolf3DClone")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Wolf3DClone")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
