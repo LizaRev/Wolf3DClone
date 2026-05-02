@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Audio;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Wolf3DClone.Core;
@@ -27,6 +28,11 @@ namespace Wolf3DClone
         private List<Enemy> _enemies;
         private List<Projectile> _playerBullets = new List<Projectile>();
 
+        // Змінна для відстеження часу після останнього влучання
+        private float _lastHitTimer = 0f;
+        private const float RegenDelay = 3.0f; // Затримка перед початком регенерації (3 секунди)
+        private const float RegenRate = 5.0f;  // Скільки HP відновлюється за секунду
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -41,11 +47,13 @@ namespace Wolf3DClone
             _player = new Player();
             _map = new Map();
             _raycaster = new Raycaster();
-            _enemies = new List<Enemy> 
-            { 
-                new Enemy(2.5f, 1.5f), new Enemy(1.5f, 7.5f), 
-                new Enemy(7.5f, 3.5f), new Enemy(13.5f, 9.5f), new Enemy(8.5f, 13.5f) 
-            };
+            
+            _enemies = new List<Enemy>();
+            _enemies.Add(new Enemy(4.5f, 1.5f));
+            _enemies.Add(new Enemy(1.5f, 7.5f));
+            _enemies.Add(new Enemy(13.5f, 1.5f));
+            _enemies.Add(new Enemy(13.5f, 13.5f));
+            
             base.Initialize();
         }
 
@@ -85,6 +93,7 @@ namespace Wolf3DClone
         {
             var k = Keyboard.GetState();
             var m = Mouse.GetState();
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             _player.Update(_map, k.IsKeyDown(Keys.W), k.IsKeyDown(Keys.S), 0.05f);
             
@@ -92,27 +101,24 @@ namespace Wolf3DClone
             if (isMoving) { if (_stepInstance.State != SoundState.Playing) _stepInstance.Play(); }
             else _stepInstance.Stop();
 
-            // Стрільба гравця
             if ((m.LeftButton == ButtonState.Pressed && _oldMouse.LeftButton == ButtonState.Released) ||
                 (k.IsKeyDown(Keys.LeftControl) && !_oldState.IsKeyDown(Keys.LeftControl)))
             {
                 _playerBullets.Add(_player.Shoot());
             }
 
-            // Оновлення ворогів та їхніх куль
+            // Оновлення ворогів
             foreach (var e in _enemies)
             {
                 e.Update(gameTime, _player, _map);
-                
-                // Перевірка: чи влучив ворог у гравця
                 for (int i = e.Bullets.Count - 1; i >= 0; i--)
                 {
                     if (Vector2.Distance(e.Bullets[i].Position, _player.Position) < 0.4f)
                     {
-                        _player.Health -= 10f; // Мінус 10 HP
+                        _player.Health -= 10f;
+                        _lastHitTimer = 0f; // Скидаємо таймер при отриманні урону
                         e.Bullets.RemoveAt(i);
-                        
-                        if (_player.Health <= 0) // Смерть гравця
+                        if (_player.Health <= 0) 
                         {
                             _player.Health = 100f;
                             _player.Position = new Vector2(1.5f, 1.5f);
@@ -121,7 +127,15 @@ namespace Wolf3DClone
                 }
             }
 
-            // Оновлення твоїх куль та влучань у ворогів
+            // --- ЛОГІКА РЕГЕНЕРАЦІЇ ---
+            _lastHitTimer += deltaTime;
+            if (_lastHitTimer >= RegenDelay && _player.Health < 100f)
+            {
+                _player.Health += RegenRate * deltaTime;
+                if (_player.Health > 100f) _player.Health = 100f;
+            }
+
+            // Оновлення твоїх куль
             for (int i = _playerBullets.Count - 1; i >= 0; i--)
             {
                 _playerBullets[i].Update(_map);
@@ -159,3 +173,4 @@ namespace Wolf3DClone
         }
     }
 }
+

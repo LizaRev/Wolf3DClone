@@ -9,11 +9,13 @@ namespace Wolf3DClone.World
     {
         public Vector2 Position;
         public float Scale = 0.6f; 
-        public float Health = 100f; // Здоров'я ворога
+        public float Health = 100f; 
 
         private float _shootTimer = 0f;
-        private float _shootDelay = 2.0f;
-        private float _moveSpeed = 0.015f;
+        // ЗМІНЕНО: тепер затримка 0.8 сек замість 2.0
+        private float _shootDelay = 0.8f; 
+        // ЗМІНЕНО: швидкість 0.02f замість 0.015f (став трохи швидшим)
+        private float _moveSpeed = 0.02f; 
 
         public List<Projectile> Bullets = new List<Projectile>();
 
@@ -26,31 +28,33 @@ namespace Wolf3DClone.World
         {
             float dist = Vector2.Distance(Position, player.Position);
 
-            if (dist < 8f && dist > 1.4f)
+            // Рух до гравця
+            if (dist < 10f && dist > 1.2f)
             {
-                Vector2 dir = player.Position - Position;
-                dir.Normalize();
+                Vector2 dir = Vector2.Normalize(player.Position - Position);
+                
+                // Колізія по X
+                Vector2 nextX = Position + new Vector2(dir.X * _moveSpeed, 0);
+                if (map.Get((int)(nextX.X + (dir.X > 0 ? 0.3f : -0.3f)), (int)Position.Y) <= 2) 
+                    Position.X = nextX.X;
 
-                float padding = 0.3f; 
-                Vector2 nextPos = Position + dir * _moveSpeed;
-
-                float checkX = (dir.X > 0) ? nextPos.X + padding : nextPos.X - padding;
-                int tileX = map.Get((int)checkX, (int)Position.Y);
-                if (tileX == 0 || tileX == 2) Position.X = nextPos.X;
-
-                float checkY = (dir.Y > 0) ? nextPos.Y + padding : nextPos.Y - padding;
-                int tileY = map.Get((int)Position.X, (int)checkY);
-                if (tileY == 0 || tileY == 2) Position.Y = nextPos.Y;
+                // Колізія по Y
+                Vector2 nextY = Position + new Vector2(0, dir.Y * _moveSpeed);
+                if (map.Get((int)Position.X, (int)(nextY.Y + (dir.Y > 0 ? 0.3f : -0.3f))) <= 2) 
+                    Position.Y = nextY.Y;
             }
 
+            // ШВИДКА СТРІЛЬБА
             _shootTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
-            if (_shootTimer >= _shootDelay && dist < 10f)
+            if (_shootTimer >= _shootDelay && dist < 12f)
             {
                 _shootTimer = 0f;
+                // Стріляє точно в гравця
                 Vector2 shootDir = player.Position - Position;
                 Bullets.Add(new Projectile(Position, shootDir));
             }
 
+            // Оновлення куль
             for (int i = Bullets.Count - 1; i >= 0; i--)
             {
                 Bullets[i].Update(map);
