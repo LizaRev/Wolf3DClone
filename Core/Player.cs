@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using Wolf3DClone.World;
 
 namespace Wolf3DClone.Core
 {
@@ -7,6 +8,7 @@ namespace Wolf3DClone.Core
     {
         public Vector2 Position;
         public float Rotation;
+        public float Health = 100f; // Твоє здоров'я
 
         public Player()
         {
@@ -20,27 +22,21 @@ namespace Wolf3DClone.Core
             float dy = (float)Math.Sin(Rotation) * speed;
 
             Vector2 next = Position;
-
             if (forward) next += new Vector2(dx, dy);
             if (back) next -= new Vector2(dx, dy);
 
-            int x = (int)next.X;
-            int y = (int)next.Y;
-
-            int cell = map.Get(x, y);
-
-            if (cell == 1)
-                return;
-
-            if (cell == 2)
+            // Можна ходити крізь порожнечу (0) та двері (2)
+            int cellType = map.Get((int)next.X, (int)next.Y);
+            if (cellType == 0 || cellType == 2)
             {
-                float open = map.DoorOpen[y, x];
-
-                if (open < 0.6f)
-                    return;
+                Position = next;
             }
+        }
 
-            Position = next;
+        public Projectile Shoot()
+        {
+            Vector2 dir = new Vector2((float)Math.Cos(Rotation), (float)Math.Sin(Rotation));
+            return new Projectile(Position, dir);
         }
     }
 }
