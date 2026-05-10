@@ -40,6 +40,16 @@ namespace Wolf3DClone.Render
             _sb.End();
         }
 
+        // --- МЕТОД ДЛЯ ФОТО НА ВЕСЬ ЕКРАН (ЧЕРВОНА КІМНАТА / WIN) ---
+        public void DrawWinScreen(Texture2D photo)
+        {
+            _gd.Clear(Color.Black);
+            _sb.Begin();
+            // Малюємо фото, розтягуючи його на все вікно
+            _sb.Draw(photo, new Rectangle(0, 0, _gd.Viewport.Width, _gd.Viewport.Height), Color.White);
+            _sb.End();
+        }
+
         // --- ОСНОВНИЙ МЕТОД ГРИ ---
         public void Draw(Player player, Map map, Raycaster ray,
             Texture2D wall, Texture2D door, Texture2D finish, Texture2D floor,

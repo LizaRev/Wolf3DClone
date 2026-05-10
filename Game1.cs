@@ -11,7 +11,7 @@ using Wolf3DClone.World;
 
 namespace Wolf3DClone
 {
-    public enum GameState { Menu, Playing }
+    public enum GameState { Menu, Playing, Win }
 
     public class Game1 : Game
     {
@@ -24,8 +24,9 @@ namespace Wolf3DClone
         // Текстури
         private Texture2D _wallTex, _doorTex, _finishTex, _floorTex, _enemyTex, _boltTex;
         private Texture2D _menuBgTex, _startBtnTex, _exitBtnTex, _titleTex;
+        private Texture2D _winPhotoTex;
         
-        // Звукові ефекти
+        // Звуки
         private SoundEffect _stepSound, _doorSound;
         private SoundEffectInstance _stepInstance, _doorInstance;
 
@@ -37,7 +38,7 @@ namespace Wolf3DClone
         private GameState _currentState = GameState.Menu;
         private int _selected = 0;
 
-        // Розміри кнопок (твої широкі кнопки по центру)
+        // UI елементи - початкові розміри (800x600)
         private Rectangle _titleRect = new Rectangle(200, 40, 400, 120);
         private Rectangle _startRect = new Rectangle(200, 260, 400, 110);
         private Rectangle _exitRect = new Rectangle(200, 400, 400, 110);
@@ -50,20 +51,59 @@ namespace Wolf3DClone
         {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
+            
+            // Налаштування початкового вікна
             _graphics.PreferredBackBufferWidth = 800;
             _graphics.PreferredBackBufferHeight = 600;
+            
+            // Дозволяємо розтягувати вікно
+            Window.AllowUserResizing = true;
+            
+            // Підписуємося на подію зміни розміру вікна
+            Window.ClientSizeChanged += OnWindowResize;
+            
+            _graphics.HardwareModeSwitch = false; 
+            
             IsMouseVisible = true;
+        }
+
+        // --- НОВИЙ МЕТОД: ОБРОБНИК ЗМІНИ РОЗМІРУ ВІКНА ---
+        private void OnWindowResize(object sender, EventArgs e)
+        {
+            // На Mac іноді потрібно примусово застосувати зміни
+            _graphics.ApplyChanges();
+
+            // Оновлюємо UI прямокутник, щоб вони залишалися в центрі
+            int sw = GraphicsDevice.Viewport.Width;
+            int sh = GraphicsDevice.Viewport.Height;
+
+            // Перераховуємо позиції кнопок меню відносно нового розміру екрана
+            int uiWidth = 400; 
+            int uiHeight = 110;
+            _titleRect = new Rectangle((sw - uiWidth) / 2, sh / 15, uiWidth, 120);
+            _startRect = new Rectangle((sw - uiWidth) / 2, (int)(sh * 0.43f), uiWidth, uiHeight);
+            _exitRect = new Rectangle((sw - uiWidth) / 2, (int)(sh * 0.66f), uiWidth, uiHeight);
+            
+            // Зверни увагу: Рейкастер і Рендерер автоматично використовують 
+            // GraphicsDevice.Viewport в своїх циклахDraw, тому їх оновлювати не треба.
         }
 
         protected override void Initialize()
         {
             _player = new Player();
+            _player.Position = new Vector2(1.5f, 1.5f); 
+            
             _map = new Map();
             _raycaster = new Raycaster();
             _enemies = new List<Enemy> { 
                 new Enemy(4.5f, 1.5f), new Enemy(1.5f, 7.5f), 
                 new Enemy(13.5f, 1.5f), new Enemy(13.5f, 13.5f) 
             };
+            
+            // Примусово викликаємо OnWindowResize один раз при старті, 
+            // щоб кнопки меню відразу стали в центр
+            OnWindowResize(null, null);
+
             base.Initialize();
         }
 
@@ -71,7 +111,6 @@ namespace Wolf3DClone
         {
             _renderer = new Renderer(GraphicsDevice);
             
-            // Завантаження графіки
             _wallTex = LoadTexture("Content/wall.png");
             _doorTex = LoadTexture("Content/door.png");
             _finishTex = LoadTexture("Content/finish.png");
@@ -82,23 +121,21 @@ namespace Wolf3DClone
             _startBtnTex = LoadTexture("Content/start_btn.png");
             _exitBtnTex = LoadTexture("Content/exit_btn.png");
             _titleTex = LoadTexture("Content/title.png");
+            _winPhotoTex = LoadTexture("Content/gameover.png");
 
             CleanTransparency(_enemyTex);
             CleanTransparency(_boltTex);
+            CleanTransparency(_winPhotoTex);
 
-            // Завантаження звуків кроків та дверей (wav зазвичай не викликає SIGABRT)
             try {
                 _stepSound = LoadSound("Content/step.wav");
                 if (_stepSound != null) {
                     _stepInstance = _stepSound.CreateInstance();
                     _stepInstance.IsLooped = true;
                 }
-                
                 _doorSound = LoadSound("Content/door.wav");
                 if (_doorSound != null) _doorInstance = _doorSound.CreateInstance();
-            } catch {
-                // Якщо навіть wav не вантажиться, гра піде без звуку, але не вилетить
-            }
+            } catch { }
         }
 
         private Texture2D LoadTexture(string path)
@@ -139,18 +176,21 @@ namespace Wolf3DClone
 
                 bool clicked = (m.LeftButton == ButtonState.Pressed && _oldMouse.LeftButton == ButtonState.Released);
                 if ((clicked && _startRect.Contains(m.Position)) || (k.IsKeyDown(Keys.Enter) && _selected == 0))
-                {
                     _currentState = GameState.Playing;
-                }
+                
                 if ((clicked && _exitRect.Contains(m.Position)) || (k.IsKeyDown(Keys.Enter) && _selected == 1))
                     Exit();
             }
-            else
+            else if (_currentState == GameState.Playing)
             {
                 IsMouseVisible = false;
                 if (k.IsKeyDown(Keys.Escape)) _currentState = GameState.Menu;
 
                 _player.Update(_map, k.IsKeyDown(Keys.W), k.IsKeyDown(Keys.S), 0.05f);
+
+                Vector2 winTarget = new Vector2(10.5f, 13.5f);
+                if (Vector2.Distance(_player.Position, winTarget) < 1.2f)
+                    _currentState = GameState.Win;
                 
                 if (k.IsKeyDown(Keys.W) || k.IsKeyDown(Keys.S)) {
                     if (_stepInstance?.State != SoundState.Playing) _stepInstance?.Play();
@@ -207,6 +247,15 @@ namespace Wolf3DClone
                     _doorInstance?.Play();
                 }
             }
+            else if (_currentState == GameState.Win)
+            {
+                IsMouseVisible = true;
+                if (k.IsKeyDown(Keys.Enter) || k.IsKeyDown(Keys.Escape))
+                {
+                    _player.Position = new Vector2(1.5f, 1.5f);
+                    _currentState = GameState.Menu;
+                }
+            }
 
             _oldState = k; _oldMouse = m;
             base.Update(gameTime);
@@ -216,8 +265,11 @@ namespace Wolf3DClone
         {
             if (_currentState == GameState.Menu)
                 _renderer.DrawMenu(_menuBgTex, _titleTex, _titleRect, _startBtnTex, _startRect, _exitBtnTex, _exitRect, _selected);
-            else
+            else if (_currentState == GameState.Playing)
                 _renderer.Draw(_player, _map, _raycaster, _wallTex, _doorTex, _finishTex, _floorTex, _enemyTex, _boltTex, _enemies, _playerBullets, gameTime);
+            else if (_currentState == GameState.Win)
+                _renderer.DrawWinScreen(_winPhotoTex);
+
             base.Draw(gameTime);
         }
     }
