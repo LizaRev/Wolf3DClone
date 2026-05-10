@@ -21,7 +21,6 @@ namespace Wolf3DClone.World
         {
             Position += Direction * Speed;
 
-            // Якщо врізався в будь-що, крім пустоти (0) — зникає
             if (map.Get((int)Position.X, (int)Position.Y) != 0)
             {
                 IsActive = false;

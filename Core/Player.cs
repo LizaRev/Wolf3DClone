@@ -8,7 +8,7 @@ namespace Wolf3DClone.Core
     {
         public Vector2 Position;
         public float Rotation;
-        public float Health = 100f; // Твоє здоров'я
+        public float Health = 100f; 
 
         public Player()
         {
@@ -25,7 +25,7 @@ namespace Wolf3DClone.Core
             if (forward) next += new Vector2(dx, dy);
             if (back) next -= new Vector2(dx, dy);
 
-            // Можна ходити крізь порожнечу (0) та двері (2)
+
             int cellType = map.Get((int)next.X, (int)next.Y);
             if (cellType == 0 || cellType == 2)
             {

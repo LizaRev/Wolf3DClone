@@ -19,7 +19,6 @@ namespace Wolf3DClone.Core
 
                 int cell = map.Get((int)x, (int)y);
 
-                // 🚪 двері з колізією
                 if (cell == 2)
                 {
                     float open = map.DoorOpen[(int)y, (int)x];
