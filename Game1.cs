@@ -52,14 +52,11 @@ namespace Wolf3DClone
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             
-            // Налаштування початкового вікна
             _graphics.PreferredBackBufferWidth = 800;
             _graphics.PreferredBackBufferHeight = 600;
             
-            // Дозволяємо розтягувати вікно
             Window.AllowUserResizing = true;
             
-            // Підписуємося на подію зміни розміру вікна
             Window.ClientSizeChanged += OnWindowResize;
             
             _graphics.HardwareModeSwitch = false; 
@@ -67,25 +64,19 @@ namespace Wolf3DClone
             IsMouseVisible = true;
         }
 
-        // --- НОВИЙ МЕТОД: ОБРОБНИК ЗМІНИ РОЗМІРУ ВІКНА ---
         private void OnWindowResize(object sender, EventArgs e)
         {
-            // На Mac іноді потрібно примусово застосувати зміни
             _graphics.ApplyChanges();
 
-            // Оновлюємо UI прямокутник, щоб вони залишалися в центрі
             int sw = GraphicsDevice.Viewport.Width;
             int sh = GraphicsDevice.Viewport.Height;
 
-            // Перераховуємо позиції кнопок меню відносно нового розміру екрана
             int uiWidth = 400; 
             int uiHeight = 110;
             _titleRect = new Rectangle((sw - uiWidth) / 2, sh / 15, uiWidth, 120);
             _startRect = new Rectangle((sw - uiWidth) / 2, (int)(sh * 0.43f), uiWidth, uiHeight);
             _exitRect = new Rectangle((sw - uiWidth) / 2, (int)(sh * 0.66f), uiWidth, uiHeight);
             
-            // Зверни увагу: Рейкастер і Рендерер автоматично використовують 
-            // GraphicsDevice.Viewport в своїх циклахDraw, тому їх оновлювати не треба.
         }
 
         protected override void Initialize()
